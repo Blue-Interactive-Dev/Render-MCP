@@ -5,15 +5,15 @@ ARG VERSION="dev"
 WORKDIR /build
 
 # Install git
-RUN --mount=type=cache,target=/var/cache/apk \
-    apk add git
+RUN apk add --no-cache git
 
-# Build the MCP server
-# go build automatically download required module dependencies to /go/pkg/mod
-RUN --mount=type=cache,target=/go/pkg/mod \
-    --mount=type=cache,target=/root/.cache/go-build \
-    --mount=type=bind,target=. \
-    CGO_ENABLED=0 go build -ldflags="-s -w -X cfg.version=${VERSION} " \
+# Copy module files first so dependency download is cached as its own layer
+COPY go.mod go.sum ./
+RUN go mod download
+
+# Copy the rest of the source and build
+COPY . .
+RUN CGO_ENABLED=0 go build -ldflags="-s -w -X cfg.version=${VERSION} " \
     -o /bin/render-mcp-server main.go
 
 # Make a stage to run the app
